@@ -1,0 +1,75 @@
+const { google } = require('googleapis')
+const path = require('path')
+
+const SPREADSHEET_ID = process.env.SPREADSHEET_ID
+
+function getAuth() {
+  // En producción (Render) se usa la variable de entorno GOOGLE_CREDENTIALS_JSON
+  if (process.env.GOOGLE_CREDENTIALS_JSON) {
+    const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS_JSON)
+    return new google.auth.GoogleAuth({
+      credentials,
+      scopes: ['https://www.googleapis.com/auth/spreadsheets']
+    })
+  }
+  // En local se usa el archivo
+  return new google.auth.GoogleAuth({
+    keyFile: path.resolve(process.env.GOOGLE_CREDENTIALS_PATH || './credentials.json'),
+    scopes: ['https://www.googleapis.com/auth/spreadsheets']
+  })
+}
+
+async function getSheets() {
+  const auth = getAuth()
+  return google.sheets({ version: 'v4', auth })
+}
+
+async function leerHoja(nombre) {
+  const sheets = await getSheets()
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${nombre}!A:Z`
+  })
+  const rows = res.data.values || []
+  if (rows.length < 2) return []
+  const headers = rows[0]
+  return rows.slice(1).map((row, i) => {
+    const obj = { _rowIndex: i + 2 }
+    headers.forEach((h, j) => { obj[h] = row[j] || '' })
+    return obj
+  })
+}
+
+async function actualizarFila(hoja, rowIndex, columnas) {
+  const sheets = await getSheets()
+  for (const [col, value] of Object.entries(columnas)) {
+    await sheets.spreadsheets.values.update({
+      spreadsheetId: SPREADSHEET_ID,
+      range: `${hoja}!${col}${rowIndex}`,
+      valueInputOption: 'USER_ENTERED',
+      requestBody: { values: [[value]] }
+    })
+  }
+}
+
+async function agregarFila(hoja, valores) {
+  const sheets = await getSheets()
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${hoja}!A:Z`,
+    valueInputOption: 'USER_ENTERED',
+    insertDataOption: 'INSERT_ROWS',
+    requestBody: { values: [valores] }
+  })
+}
+
+async function obtenerColumnas(hoja) {
+  const sheets = await getSheets()
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: `${hoja}!1:1`
+  })
+  return res.data.values ? res.data.values[0] : []
+}
+
+module.exports = { leerHoja, actualizarFila, agregarFila, obtenerColumnas }

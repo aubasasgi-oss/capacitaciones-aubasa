@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import ModalRealizar from '../components/ModalRealizar'
 import ModalNueva from '../components/ModalNueva'
+import ModalEditar from '../components/ModalEditar'
 
 export default function Dashboard() {
   const [capacitaciones, setCapacitaciones] = useState([])
@@ -11,6 +12,7 @@ export default function Dashboard() {
   const [error, setError] = useState('')
   const [modalRealizar, setModalRealizar] = useState(null)
   const [modalNueva, setModalNueva] = useState(false)
+  const [modalEditar, setModalEditar] = useState(null)
   const [msg, setMsg] = useState('')
   const [filtroPersna, setFiltroPersna] = useState('')
   const [filtroTema, setFiltroTema] = useState('')
@@ -50,6 +52,18 @@ export default function Dashboard() {
       await axios.put(`/api/capacitaciones/${rowIndex}/realizar`, { evaluacion, fechaRealizacion }, { headers })
       setMsg('Capacitación marcada como realizada')
       setModalRealizar(null)
+      cargar()
+      setTimeout(() => setMsg(''), 3000)
+    } catch (err) {
+      alert(err.response?.data?.error || 'Error al actualizar')
+    }
+  }
+
+  async function handleEditar(rowIndex, hoja, campos) {
+    try {
+      await axios.put(`/api/capacitaciones/${rowIndex}/editar`, { hoja, campos }, { headers })
+      setMsg('Capacitación actualizada correctamente')
+      setModalEditar(null)
       cargar()
       setTimeout(() => setMsg(''), 3000)
     } catch (err) {
@@ -212,7 +226,7 @@ export default function Dashboard() {
                   <th>Fecha Prog.</th>
                   {tab === 'realizadas' && <><th>Evaluación</th><th>Fecha Real.</th></>}
                   <th>Estado</th>
-                  {tab === 'programadas' && <th>Acción</th>}
+                  <th>Acciones</th>
                 </tr>
               </thead>
               <tbody>
@@ -237,17 +251,26 @@ export default function Dashboard() {
                         {tab === 'programadas' ? 'Programada' : 'Realizada'}
                       </span>
                     </td>
-                    {tab === 'programadas' && (
-                      <td>
+                    <td>
+                      <div style={{ display: 'flex', gap: 6 }}>
+                        {tab === 'programadas' && (
+                          <button
+                            className="btn btn-success"
+                            style={{ padding: '5px 10px', fontSize: 12 }}
+                            onClick={() => setModalRealizar(c)}
+                          >
+                            ✓ Realizada
+                          </button>
+                        )}
                         <button
-                          className="btn btn-success"
-                          style={{ padding: '5px 12px', fontSize: 12 }}
-                          onClick={() => setModalRealizar(c)}
+                          className="btn btn-warning"
+                          style={{ padding: '5px 10px', fontSize: 12 }}
+                          onClick={() => setModalEditar(c)}
                         >
-                          ✓ Marcar realizada
+                          ✏️ Editar
                         </button>
-                      </td>
-                    )}
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -261,6 +284,13 @@ export default function Dashboard() {
           cap={modalRealizar}
           onClose={() => setModalRealizar(null)}
           onConfirm={handleRealizar}
+        />
+      )}
+      {modalEditar && (
+        <ModalEditar
+          cap={modalEditar}
+          onClose={() => setModalEditar(null)}
+          onConfirm={handleEditar}
         />
       )}
       {modalNueva && (

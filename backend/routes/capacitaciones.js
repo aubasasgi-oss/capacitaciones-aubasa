@@ -55,6 +55,30 @@ router.get('/', authMiddleware, async (req, res) => {
   }
 })
 
+// Editar campos de una capacitación
+router.put('/:rowIndex/editar', authMiddleware, async (req, res) => {
+  try {
+    const { rowIndex } = req.params
+    const { hoja: hojaBody, campos } = req.body
+    const hoja = hojaBody || req.user.sector
+
+    const headers = await obtenerColumnas(hoja)
+    const colLetra = (idx) => String.fromCharCode(65 + idx)
+
+    const updates = {}
+    for (const [nombreColumna, valor] of Object.entries(campos)) {
+      const idx = headers.indexOf(nombreColumna)
+      if (idx >= 0) updates[colLetra(idx)] = valor
+    }
+
+    await actualizarFila(hoja, rowIndex, updates)
+    res.json({ ok: true })
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ error: err.message })
+  }
+})
+
 // Marcar como realizado — recibe _hoja en el body para SGI
 router.put('/:rowIndex/realizar', authMiddleware, async (req, res) => {
   try {

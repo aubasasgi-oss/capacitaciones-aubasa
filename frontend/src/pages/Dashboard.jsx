@@ -16,6 +16,7 @@ export default function Dashboard() {
   const [filtroTema, setFiltroTema] = useState('')
   const [filtroDesde, setFiltroDesde] = useState('')
   const [filtroHasta, setFiltroHasta] = useState('')
+  const [filtroBase, setFiltroBase] = useState('')
   const sector = localStorage.getItem('cap_sector')
   const navigate = useNavigate()
   const token = localStorage.getItem('cap_token')
@@ -71,7 +72,10 @@ export default function Dashboard() {
     setFiltroTema('')
     setFiltroDesde('')
     setFiltroHasta('')
+    setFiltroBase('')
   }
+
+  const basesOperativas = [...new Set(capacitaciones.map(c => c['Base Operativa']).filter(Boolean))].sort()
 
   const programadas = capacitaciones.filter(c => c['Estado']?.toLowerCase().includes('programad'))
   const realizadas = capacitaciones.filter(c => c['Estado']?.toLowerCase().includes('realizad'))
@@ -86,10 +90,11 @@ export default function Dashboard() {
     if (filtroTema && !tema.includes(filtroTema.toLowerCase())) return false
     if (filtroDesde && fechaStr && fechaStr < filtroDesde) return false
     if (filtroHasta && fechaStr && fechaStr > filtroHasta) return false
+    if (filtroBase && c['Base Operativa'] !== filtroBase) return false
     return true
   })
 
-  const hayFiltros = filtroPersna || filtroTema || filtroDesde || filtroHasta
+  const hayFiltros = filtroPersna || filtroTema || filtroDesde || filtroHasta || filtroBase
 
   return (
     <div>
@@ -130,6 +135,15 @@ export default function Dashboard() {
             <div style={{ flex: '1 1 140px' }}>
               <label>Fecha hasta</label>
               <input type="date" value={filtroHasta} onChange={e => setFiltroHasta(e.target.value)} />
+            </div>
+            <div style={{ flex: '1 1 160px' }}>
+              <label>Base Operativa</label>
+              <select value={filtroBase} onChange={e => setFiltroBase(e.target.value)}>
+                <option value="">Todas</option>
+                {basesOperativas.map(b => (
+                  <option key={b} value={b}>{b}</option>
+                ))}
+              </select>
             </div>
             {hayFiltros && (
               <button className="btn btn-outline" onClick={limpiarFiltros} style={{ marginBottom: 1 }}>

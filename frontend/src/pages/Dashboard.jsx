@@ -17,6 +17,7 @@ export default function Dashboard() {
   const [filtroDesde, setFiltroDesde] = useState('')
   const [filtroHasta, setFiltroHasta] = useState('')
   const [filtroBase, setFiltroBase] = useState('')
+  const [filtroSector, setFiltroSector] = useState('')
   const sector = localStorage.getItem('cap_sector')
   const navigate = useNavigate()
   const token = localStorage.getItem('cap_token')
@@ -40,6 +41,7 @@ export default function Dashboard() {
   function logout() {
     localStorage.removeItem('cap_token')
     localStorage.removeItem('cap_sector')
+    localStorage.removeItem('cap_role')
     navigate('/login')
   }
 
@@ -73,8 +75,11 @@ export default function Dashboard() {
     setFiltroDesde('')
     setFiltroHasta('')
     setFiltroBase('')
+    setFiltroSector('')
   }
 
+  const esSGI = localStorage.getItem('cap_role') === 'GAU'
+  const sectoresDisponibles = [...new Set(capacitaciones.map(c => c['_hoja']).filter(Boolean))].sort()
   const basesOperativas = [...new Set(capacitaciones.map(c => c['Base Operativa']).filter(Boolean))].sort()
 
   const programadas = capacitaciones.filter(c => c['Estado']?.toLowerCase().includes('programad'))
@@ -91,10 +96,11 @@ export default function Dashboard() {
     if (filtroDesde && fechaStr && fechaStr < filtroDesde) return false
     if (filtroHasta && fechaStr && fechaStr > filtroHasta) return false
     if (filtroBase && c['Base Operativa'] !== filtroBase) return false
+    if (filtroSector && c['_hoja'] !== filtroSector) return false
     return true
   })
 
-  const hayFiltros = filtroPersna || filtroTema || filtroDesde || filtroHasta || filtroBase
+  const hayFiltros = filtroPersna || filtroTema || filtroDesde || filtroHasta || filtroBase || filtroSector
 
   return (
     <div>
@@ -145,6 +151,17 @@ export default function Dashboard() {
                 ))}
               </select>
             </div>
+            {esSGI && (
+              <div style={{ flex: '1 1 160px' }}>
+                <label>Sector</label>
+                <select value={filtroSector} onChange={e => setFiltroSector(e.target.value)}>
+                  <option value="">Todos</option>
+                  {sectoresDisponibles.map(s => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+              </div>
+            )}
             {hayFiltros && (
               <button className="btn btn-outline" onClick={limpiarFiltros} style={{ marginBottom: 1 }}>
                 Limpiar filtros
@@ -185,6 +202,7 @@ export default function Dashboard() {
             <table>
               <thead>
                 <tr>
+                  {esSGI && <th>Sector</th>}
                   <th>Apellido y Nombre</th>
                   <th>Legajo</th>
                   <th>Puesto</th>
@@ -200,6 +218,7 @@ export default function Dashboard() {
               <tbody>
                 {lista.map((c, i) => (
                   <tr key={i}>
+                    {esSGI && <td><span className="badge" style={{ background: '#e3f2fd', color: '#1565c0' }}>{c['_hoja']}</span></td>}
                     <td>{c['Apellido y Nombre']}</td>
                     <td>{c['Legajo']}</td>
                     <td>{c['Puesto']}</td>

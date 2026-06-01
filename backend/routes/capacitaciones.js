@@ -3,6 +3,14 @@ const jwt = require('jsonwebtoken')
 const { leerHoja, actualizarFila, agregarFila, obtenerColumnas } = require('../sheets')
 const router = express.Router()
 
+// Hojas que SGI puede ver (todas)
+const TODAS_LAS_HOJAS = [
+  'SGI', 'Operaciones', 'Asistencia Vial', 'Centro de Monitoreo',
+  'Compras', 'Recursos Humanos', 'Sistemas', 'Comercial',
+  'Seguridad Patrimonial', 'Legales', 'RRII', 'Taller Mecanico',
+  'Mantenimiento', 'SVIA Operaciones'
+]
+
 function authMiddleware(req, res, next) {
   const token = req.headers.authorization?.split(' ')[1]
   if (!token) return res.status(401).json({ error: 'Sin token' })
@@ -14,24 +22,45 @@ function authMiddleware(req, res, next) {
   }
 }
 
-// Listar capacitaciones del sector
+// Listar capacitaciones
 router.get('/', authMiddleware, async (req, res) => {
   try {
-    const hoja = req.user.sector
-    const rows = await leerHoja(hoja)
-    res.json(rows)
+    const esSGI = req.user.role === 'GAU'
+
+    if (esSGI) {
+      // SGI lee todas las hojas en paralelo
+      const resultados = await Promise.allSettled(
+        TODAS_LAS_HOJAS.map(async (hoja) => {
+          try {
+            const rows = await leerHoja(hoja)
+            // Agrega el campo _hoja para saber de dónde viene cada fila
+            return rows.map(r => ({ ...r, _hoja: hoja }))
+          } catch {
+            return []
+          }
+        })
+      )
+      const todas = resultados
+        .filter(r => r.status === 'fulfilled')
+        .flatMap(r => r.value)
+      return res.json(todas)
+    }
+
+    // Sector normal: solo su hoja
+    const rows = await leerHoja(req.user.sector)
+    res.json(rows.map(r => ({ ...r, _hoja: req.user.sector })))
   } catch (err) {
     console.error(err)
     res.status(500).json({ error: 'Error leyendo sheet: ' + err.message })
   }
 })
 
-// Marcar como realizado
+// Marcar como realizado — recibe _hoja en el body para SGI
 router.put('/:rowIndex/realizar', authMiddleware, async (req, res) => {
   try {
     const { rowIndex } = req.params
-    const { evaluacion, fechaRealizacion } = req.body
-    const hoja = req.user.sector
+    const { evaluacion, fechaRealizacion, hoja: hojaBody } = req.body
+    const hoja = hojaBody || req.user.sector
 
     const headers = await obtenerColumnas(hoja)
     const colLetra = (idx) => String.fromCharCode(65 + idx)
@@ -56,9 +85,9 @@ router.put('/:rowIndex/realizar', authMiddleware, async (req, res) => {
 // Nueva capacitación programada
 router.post('/', authMiddleware, async (req, res) => {
   try {
-    const hoja = req.user.sector
+    const { apellidoNombre, legajo, puesto, baseOperativa, tema, categoria, fechaProgramacion, hoja: hojaBody } = req.body
+    const hoja = hojaBody || req.user.sector
     const headers = await obtenerColumnas(hoja)
-    const { apellidoNombre, legajo, puesto, baseOperativa, tema, categoria, fechaProgramacion } = req.body
 
     const id = Math.random().toString(36).substring(2, 10)
     const fila = headers.map(h => {

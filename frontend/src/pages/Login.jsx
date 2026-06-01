@@ -34,6 +34,7 @@ export default function Login() {
       const { data } = await axios.post('/api/auth/login', { sector, password })
       localStorage.setItem('cap_token', data.token)
       localStorage.setItem('cap_sector', data.sector)
+      localStorage.setItem('cap_role', data.role)
       navigate('/')
     } catch (err) {
       setError(err.response?.data?.error || 'Error de conexión')

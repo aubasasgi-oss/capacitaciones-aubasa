@@ -20,6 +20,7 @@ export default function Dashboard() {
   const [filtroHasta, setFiltroHasta] = useState('')
   const [filtroBase, setFiltroBase] = useState('')
   const [filtroSector, setFiltroSector] = useState('')
+  const [filtroPuesto, setFiltroPuesto] = useState('')
   const sector = localStorage.getItem('cap_sector')
   const navigate = useNavigate()
   const token = localStorage.getItem('cap_token')
@@ -106,10 +107,12 @@ export default function Dashboard() {
     setFiltroHasta('')
     setFiltroBase('')
     setFiltroSector('')
+    setFiltroPuesto('')
   }
 
   const sectoresDisponibles = [...new Set(capacitaciones.map(c => c['_hoja']).filter(Boolean))].sort()
   const basesOperativas = [...new Set(capacitaciones.map(c => c['Base Operativa']).filter(Boolean))].sort()
+  const puestosDisponibles = [...new Set(capacitaciones.map(c => c['Puesto']).filter(Boolean))].sort()
 
   const programadas = capacitaciones.filter(c => c['Estado']?.toLowerCase().includes('programad'))
   const realizadas = capacitaciones.filter(c => c['Estado']?.toLowerCase().includes('realizad'))
@@ -125,12 +128,11 @@ export default function Dashboard() {
     if (filtroHasta && fechaStr && fechaStr > filtroHasta) return false
     if (filtroBase && c['Base Operativa'] !== filtroBase) return false
     if (filtroSector && c['_hoja'] !== filtroSector) return false
+    if (filtroPuesto && c['Puesto'] !== filtroPuesto) return false
     return true
   })
 
-  const hayFiltros = filtroPersna || filtroTema || filtroDesde || filtroHasta || filtroBase || filtroSector
-
-  // Para ModalNueva: si SGI tiene filtro de sector activo, pre-seleccionar ese sector
+  const hayFiltros = filtroPersna || filtroTema || filtroDesde || filtroHasta || filtroBase || filtroSector || filtroPuesto
   const hojaParaNueva = esSGI ? (filtroSector || '') : sector
 
   return (
@@ -169,6 +171,13 @@ export default function Dashboard() {
               <select value={filtroBase} onChange={e => setFiltroBase(e.target.value)}>
                 <option value="">Todas</option>
                 {basesOperativas.map(b => (<option key={b} value={b}>{b}</option>))}
+              </select>
+            </div>
+            <div style={{ flex: '1 1 160px' }}>
+              <label>Puesto</label>
+              <select value={filtroPuesto} onChange={e => setFiltroPuesto(e.target.value)}>
+                <option value="">Todos</option>
+                {puestosDisponibles.map(p => (<option key={p} value={p}>{p}</option>))}
               </select>
             </div>
             {esSGI && (

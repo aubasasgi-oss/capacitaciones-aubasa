@@ -6,23 +6,21 @@ export default function ModalRealizar({ cap, onClose, onConfirm }) {
 
   function submit(e) {
     e.preventDefault()
-    onConfirm(cap._rowIndex, evaluacion, fecha)
+    onConfirm(cap._rowIndex, evaluacion, fecha, cap._hoja)
   }
 
   return (
     <div className="modal-overlay">
       <div className="modal">
-        <h3>✓ Marcar como Realizada</h3>
+        <h3>Marcar como Realizada</h3>
         <p style={{ marginBottom: 16, color: '#555', fontSize: 14 }}>
           <strong>{cap['Apellido y Nombre']}</strong> — {cap['Tema a capacitar']}
         </p>
         <form onSubmit={submit}>
           <div className="form-group">
-            <label>Nota / Evaluación</label>
+            <label>Nota / Evaluacion</label>
             <input
-              type="number"
-              min="0" max="10"
-              step="0.1"
+              type="number" min="0" max="10" step="0.1"
               value={evaluacion}
               onChange={e => setEvaluacion(e.target.value)}
               placeholder="ej: 8.5"
@@ -30,7 +28,7 @@ export default function ModalRealizar({ cap, onClose, onConfirm }) {
             />
           </div>
           <div className="form-group">
-            <label>Fecha de Realización</label>
+            <label>Fecha de Realizacion</label>
             <input
               type="date"
               value={fecha}

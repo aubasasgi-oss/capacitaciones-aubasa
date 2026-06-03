@@ -24,6 +24,7 @@ export default function Dashboard() {
   const navigate = useNavigate()
   const token = localStorage.getItem('cap_token')
   const headers = { Authorization: `Bearer ${token}` }
+  const esSGI = localStorage.getItem('cap_role') === 'GAU'
 
   async function cargar() {
     setLoading(true)
@@ -50,7 +51,7 @@ export default function Dashboard() {
   async function handleRealizar(rowIndex, evaluacion, fechaRealizacion) {
     try {
       await axios.put(`/api/capacitaciones/${rowIndex}/realizar`, { evaluacion, fechaRealizacion }, { headers })
-      setMsg('Capacitación marcada como realizada')
+      setMsg('Capacitacion marcada como realizada')
       setModalRealizar(null)
       cargar()
       setTimeout(() => setMsg(''), 3000)
@@ -62,7 +63,7 @@ export default function Dashboard() {
   async function handleEditar(rowIndex, hoja, campos) {
     try {
       await axios.put(`/api/capacitaciones/${rowIndex}/editar`, { hoja, campos }, { headers })
-      setMsg('Capacitación actualizada correctamente')
+      setMsg('Capacitacion actualizada correctamente')
       setModalEditar(null)
       cargar()
       setTimeout(() => setMsg(''), 3000)
@@ -74,12 +75,27 @@ export default function Dashboard() {
   async function handleNueva(datos) {
     try {
       await axios.post('/api/capacitaciones', datos, { headers })
-      setMsg('Capacitación programada correctamente')
+      setMsg('Capacitacion programada correctamente')
       setModalNueva(false)
       cargar()
       setTimeout(() => setMsg(''), 3000)
     } catch (err) {
       alert(err.response?.data?.error || 'Error al guardar')
+    }
+  }
+
+  async function handleBorrar(cap) {
+    if (!window.confirm(`Borrar capacitacion de ${cap['Apellido y Nombre']}?\nEsta accion no se puede deshacer.`)) return
+    try {
+      await axios.delete(`/api/capacitaciones/${cap._rowIndex}`, {
+        headers,
+        data: { hoja: cap._hoja }
+      })
+      setMsg('Capacitacion eliminada')
+      cargar()
+      setTimeout(() => setMsg(''), 3000)
+    } catch (err) {
+      alert(err.response?.data?.error || 'Error al borrar')
     }
   }
 
@@ -92,7 +108,6 @@ export default function Dashboard() {
     setFiltroSector('')
   }
 
-  const esSGI = localStorage.getItem('cap_role') === 'GAU'
   const sectoresDisponibles = [...new Set(capacitaciones.map(c => c['_hoja']).filter(Boolean))].sort()
   const basesOperativas = [...new Set(capacitaciones.map(c => c['Base Operativa']).filter(Boolean))].sort()
 
@@ -104,7 +119,6 @@ export default function Dashboard() {
     const nombre = (c['Apellido y Nombre'] || '').toLowerCase()
     const tema = (c['Tema a capacitar'] || '').toLowerCase()
     const fechaStr = c['Fecha de Programacion'] ? String(c['Fecha de Programacion']).split('T')[0] : ''
-
     if (filtroPersna && !nombre.includes(filtroPersna.toLowerCase())) return false
     if (filtroTema && !tema.includes(filtroTema.toLowerCase())) return false
     if (filtroDesde && fechaStr && fechaStr < filtroDesde) return false
@@ -119,7 +133,7 @@ export default function Dashboard() {
   return (
     <div>
       <div className="topbar">
-        <h1>🎓 Capacitaciones — {sector}</h1>
+        <h1>Capacitaciones — {sector}</h1>
         <button className="btn btn-outline" style={{ color: 'white', borderColor: 'white' }} onClick={logout}>
           Salir
         </button>
@@ -129,24 +143,15 @@ export default function Dashboard() {
         {msg && <div className="alert alert-success">{msg}</div>}
         {error && <div className="alert alert-error">{error}</div>}
 
-        {/* Filtros */}
         <div className="card" style={{ marginBottom: 16, padding: '16px 20px' }}>
           <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'flex-end' }}>
             <div style={{ flex: '1 1 180px' }}>
               <label>Buscar persona</label>
-              <input
-                placeholder="Apellido o nombre..."
-                value={filtroPersna}
-                onChange={e => setFiltroPersna(e.target.value)}
-              />
+              <input placeholder="Apellido o nombre..." value={filtroPersna} onChange={e => setFiltroPersna(e.target.value)} />
             </div>
             <div style={{ flex: '1 1 180px' }}>
-              <label>Buscar capacitación</label>
-              <input
-                placeholder="Tema..."
-                value={filtroTema}
-                onChange={e => setFiltroTema(e.target.value)}
-              />
+              <label>Buscar capacitacion</label>
+              <input placeholder="Tema..." value={filtroTema} onChange={e => setFiltroTema(e.target.value)} />
             </div>
             <div style={{ flex: '1 1 140px' }}>
               <label>Fecha desde</label>
@@ -160,9 +165,7 @@ export default function Dashboard() {
               <label>Base Operativa</label>
               <select value={filtroBase} onChange={e => setFiltroBase(e.target.value)}>
                 <option value="">Todas</option>
-                {basesOperativas.map(b => (
-                  <option key={b} value={b}>{b}</option>
-                ))}
+                {basesOperativas.map(b => (<option key={b} value={b}>{b}</option>))}
               </select>
             </div>
             {esSGI && (
@@ -170,9 +173,7 @@ export default function Dashboard() {
                 <label>Sector</label>
                 <select value={filtroSector} onChange={e => setFiltroSector(e.target.value)}>
                   <option value="">Todos</option>
-                  {sectoresDisponibles.map(s => (
-                    <option key={s} value={s}>{s}</option>
-                  ))}
+                  {sectoresDisponibles.map(s => (<option key={s} value={s}>{s}</option>))}
                 </select>
               </div>
             )}
@@ -200,7 +201,7 @@ export default function Dashboard() {
               </span>
             )}
             <button className="btn btn-success" onClick={() => setModalNueva(true)}>
-              + Nueva capacitación
+              + Nueva capacitacion
             </button>
           </div>
         </div>
@@ -222,9 +223,9 @@ export default function Dashboard() {
                   <th>Puesto</th>
                   <th>Base Operativa</th>
                   <th>Tema a Capacitar</th>
-                  <th>Categoría</th>
+                  <th>Categoria</th>
                   <th>Fecha Prog.</th>
-                  {tab === 'realizadas' && <><th>Evaluación</th><th>Fecha Real.</th></>}
+                  {tab === 'realizadas' && <><th>Evaluacion</th><th>Fecha Real.</th></>}
                   <th>Estado</th>
                   <th>Acciones</th>
                 </tr>
@@ -254,21 +255,21 @@ export default function Dashboard() {
                     <td>
                       <div style={{ display: 'flex', gap: 6 }}>
                         {tab === 'programadas' && (
-                          <button
-                            className="btn btn-success"
-                            style={{ padding: '5px 10px', fontSize: 12 }}
-                            onClick={() => setModalRealizar(c)}
-                          >
-                            ✓ Realizada
+                          <button className="btn btn-success" style={{ padding: '5px 10px', fontSize: 12 }} onClick={() => setModalRealizar(c)}>
+                            Realizada
                           </button>
                         )}
-                        <button
-                          className="btn btn-warning"
-                          style={{ padding: '5px 10px', fontSize: 12 }}
-                          onClick={() => setModalEditar(c)}
-                        >
-                          ✏️ Editar
+                        <button className="btn btn-warning" style={{ padding: '5px 10px', fontSize: 12 }} onClick={() => setModalEditar(c)}>
+                          Editar
                         </button>
+                        {esSGI && (
+                          <button
+                            style={{ padding: '5px 10px', fontSize: 12, background: '#dc3545', color: 'white', border: 'none', borderRadius: 4, cursor: 'pointer' }}
+                            onClick={() => handleBorrar(c)}
+                          >
+                            Borrar
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -280,24 +281,13 @@ export default function Dashboard() {
       </div>
 
       {modalRealizar && (
-        <ModalRealizar
-          cap={modalRealizar}
-          onClose={() => setModalRealizar(null)}
-          onConfirm={handleRealizar}
-        />
+        <ModalRealizar cap={modalRealizar} onClose={() => setModalRealizar(null)} onConfirm={handleRealizar} />
       )}
       {modalEditar && (
-        <ModalEditar
-          cap={modalEditar}
-          onClose={() => setModalEditar(null)}
-          onConfirm={handleEditar}
-        />
+        <ModalEditar cap={modalEditar} onClose={() => setModalEditar(null)} onConfirm={handleEditar} />
       )}
       {modalNueva && (
-        <ModalNueva
-          onClose={() => setModalNueva(false)}
-          onConfirm={handleNueva}
-        />
+        <ModalNueva onClose={() => setModalNueva(false)} onConfirm={handleNueva} />
       )}
     </div>
   )

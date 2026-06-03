@@ -13,6 +13,8 @@ export default function ModalEditar({ cap, onClose, onConfirm }) {
     'Categoria':               cap['Categoria'] || '',
     'Fecha de Programacion':   cap['Fecha de Programacion'] ? String(cap['Fecha de Programacion']).split('T')[0] : '',
     'Fecha de Reprogramacion': cap['Fecha de Reprogramacion'] ? String(cap['Fecha de Reprogramacion']).split('T')[0] : '',
+    'Evaluacion':              cap['Evaluacion'] || '',
+    'Fecha de Realizacion':    cap['Fecha de Realizacion'] ? String(cap['Fecha de Realizacion']).split('T')[0] : '',
   })
   const [personal, setPersonal] = useState([])
   const [temas, setTemas] = useState([])
@@ -55,6 +57,7 @@ export default function ModalEditar({ cap, onClose, onConfirm }) {
         <h3>Editar Capacitacion</h3>
         <form onSubmit={submit}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+
             {esOperaciones ? (
               <>
                 <div className="form-group" style={{ gridColumn: '1 / -1' }}>
@@ -92,8 +95,32 @@ export default function ModalEditar({ cap, onClose, onConfirm }) {
                 <div className="form-group" style={{ gridColumn: '1 / -1' }}><label>Tema a Capacitar</label><input value={form['Tema a capacitar']} onChange={e => set('Tema a capacitar', e.target.value)} /></div>
               </>
             )}
-            <div className="form-group"><label>Fecha Programada</label><input type="date" value={form['Fecha de Programacion']} onChange={e => set('Fecha de Programacion', e.target.value)} /></div>
-            <div className="form-group"><label>Fecha Reprogramada</label><input type="date" value={form['Fecha de Reprogramacion']} onChange={e => set('Fecha de Reprogramacion', e.target.value)} /></div>
+
+            <div className="form-group">
+              <label>Fecha Programada</label>
+              <input type="date" value={form['Fecha de Programacion']} onChange={e => set('Fecha de Programacion', e.target.value)} />
+            </div>
+            <div className="form-group">
+              <label>Fecha Reprogramada</label>
+              <input type="date" value={form['Fecha de Reprogramacion']} onChange={e => set('Fecha de Reprogramacion', e.target.value)} />
+            </div>
+
+            {/* Campos de realizacion — editables siempre */}
+            <div className="form-group">
+              <label>Evaluacion (nota)</label>
+              <input
+                type="number"
+                min="0" max="10" step="0.1"
+                placeholder="ej: 8.5"
+                value={form['Evaluacion']}
+                onChange={e => set('Evaluacion', e.target.value)}
+              />
+            </div>
+            <div className="form-group">
+              <label>Fecha de Realizacion</label>
+              <input type="date" value={form['Fecha de Realizacion']} onChange={e => set('Fecha de Realizacion', e.target.value)} />
+            </div>
+
           </div>
           <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 20 }}>
             <button type="button" className="btn btn-outline" onClick={onClose}>Cancelar</button>

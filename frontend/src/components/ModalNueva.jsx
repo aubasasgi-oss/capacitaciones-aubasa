@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react'
 import axios from 'axios'
 
 const TODAS_LAS_HOJAS = [
-  'SGI','Operaciones','Asistencia Vial','Centro de Monitoreo',
+  'SGI','Operaciones','Asistencia Vial','CCM',
   'Compras','Recursos Humanos','Sistemas','Comercial',
   'Seguridad Patrimonial','Legales','RRII','Taller Mecanico',
   'Mantenimiento','SVIA Operaciones'

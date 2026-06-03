@@ -143,7 +143,14 @@ router.post('/', authMiddleware, async (req, res) => {
 
     // 1. Obtener columnas del sheet
     const headers = await obtenerColumnas(hoja)
-    console.log(`[nueva] hoja=${hoja} headers=`, headers)
+
+    // Leer el valor real de la columna Sector de filas existentes
+    // (puede diferir del nombre de la hoja, ej: hoja='SVIA Operaciones' pero Sector='Gerencia de Operaciones SVIA')
+    const filasExistentes = await leerHoja(hoja)
+    const sectorReal = filasExistentes.length > 0 && filasExistentes[0]['Sector']
+      ? filasExistentes[0]['Sector']
+      : hoja
+    console.log(`[nueva] hoja=${hoja} sectorReal=${sectorReal} headers=`, headers)
 
     // 2. Insertar fila placeholder y obtener su rowIndex
     const rowIndex = await agregarFilaVacia(hoja)
@@ -158,7 +165,7 @@ router.post('/', authMiddleware, async (req, res) => {
       'fecha de programacion': fechaProgramacion || '',
       'legajo':                legajo || '',
       'apellido y nombre':     apellidoNombre || '',
-      'sector':                hoja,
+      'sector':                sectorReal,
       'puesto':                puesto || '',
       'base operativa':        baseOperativa || '',
       'tema a capacitar':      tema || '',

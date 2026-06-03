@@ -110,23 +110,43 @@ export default function Dashboard() {
     setFiltroPuesto('')
   }
 
-  const sectoresDisponibles = [...new Set(capacitaciones.map(c => c['_hoja']).filter(Boolean))].sort()
-  const basesOperativas = [...new Set(capacitaciones.map(c => c['Base Operativa']).filter(Boolean))].sort()
-  const puestosDisponibles = [...new Set(capacitaciones.map(c => c['Puesto']).filter(Boolean))].sort()
+  // Filtra aplicando todos los criterios EXCEPTO el indicado en `excluir`
+  // Esto permite que cada desplegable muestre opciones validas segun los demas filtros activos
+  function filtrarSin(lista, excluir) {
+    return lista.filter(c => {
+      const nombre = (c['Apellido y Nombre'] || '').toLowerCase()
+      const tema = (c['Tema a capacitar'] || '').toLowerCase()
+      const fechaStr = c['Fecha de Programacion'] ? String(c['Fecha de Programacion']).split('T')[0] : ''
+      if (excluir !== 'persona' && filtroPersna && !nombre.includes(filtroPersna.toLowerCase())) return false
+      if (excluir !== 'tema'    && filtroTema   && !tema.includes(filtroTema.toLowerCase())) return false
+      if (excluir !== 'fecha'   && filtroDesde  && fechaStr && fechaStr < filtroDesde) return false
+      if (excluir !== 'fecha'   && filtroHasta  && fechaStr && fechaStr > filtroHasta) return false
+      if (excluir !== 'base'    && filtroBase   && c['Base Operativa'] !== filtroBase) return false
+      if (excluir !== 'sector'  && filtroSector && c['_hoja'] !== filtroSector) return false
+      if (excluir !== 'puesto'  && filtroPuesto && c['Puesto'] !== filtroPuesto) return false
+      return true
+    })
+  }
 
   const programadas = capacitaciones.filter(c => c['Estado']?.toLowerCase().includes('programad'))
-  const realizadas = capacitaciones.filter(c => c['Estado']?.toLowerCase().includes('realizad'))
+  const realizadas  = capacitaciones.filter(c => c['Estado']?.toLowerCase().includes('realizad'))
   const base = tab === 'programadas' ? programadas : realizadas
+
+  // Opciones de cada desplegable calculadas sobre los datos del tab activo,
+  // aplicando todos los filtros excepto el propio — asi se relacionan en cascada
+  const sectoresDisponibles = [...new Set(filtrarSin(base, 'sector').map(c => c['_hoja']).filter(Boolean))].sort()
+  const basesDisponibles    = [...new Set(filtrarSin(base, 'base').map(c => c['Base Operativa']).filter(Boolean))].sort()
+  const puestosDisponibles  = [...new Set(filtrarSin(base, 'puesto').map(c => c['Puesto']).filter(Boolean))].sort()
 
   const lista = base.filter(c => {
     const nombre = (c['Apellido y Nombre'] || '').toLowerCase()
     const tema = (c['Tema a capacitar'] || '').toLowerCase()
     const fechaStr = c['Fecha de Programacion'] ? String(c['Fecha de Programacion']).split('T')[0] : ''
     if (filtroPersna && !nombre.includes(filtroPersna.toLowerCase())) return false
-    if (filtroTema && !tema.includes(filtroTema.toLowerCase())) return false
-    if (filtroDesde && fechaStr && fechaStr < filtroDesde) return false
-    if (filtroHasta && fechaStr && fechaStr > filtroHasta) return false
-    if (filtroBase && c['Base Operativa'] !== filtroBase) return false
+    if (filtroTema   && !tema.includes(filtroTema.toLowerCase())) return false
+    if (filtroDesde  && fechaStr && fechaStr < filtroDesde) return false
+    if (filtroHasta  && fechaStr && fechaStr > filtroHasta) return false
+    if (filtroBase   && c['Base Operativa'] !== filtroBase) return false
     if (filtroSector && c['_hoja'] !== filtroSector) return false
     if (filtroPuesto && c['Puesto'] !== filtroPuesto) return false
     return true
@@ -166,11 +186,20 @@ export default function Dashboard() {
               <label>Fecha hasta</label>
               <input type="date" value={filtroHasta} onChange={e => setFiltroHasta(e.target.value)} />
             </div>
+            {esSGI && (
+              <div style={{ flex: '1 1 160px' }}>
+                <label>Sector</label>
+                <select value={filtroSector} onChange={e => { setFiltroSector(e.target.value); setFiltroBase(''); setFiltroPuesto('') }}>
+                  <option value="">Todos</option>
+                  {sectoresDisponibles.map(s => (<option key={s} value={s}>{s}</option>))}
+                </select>
+              </div>
+            )}
             <div style={{ flex: '1 1 160px' }}>
               <label>Base Operativa</label>
-              <select value={filtroBase} onChange={e => setFiltroBase(e.target.value)}>
+              <select value={filtroBase} onChange={e => { setFiltroBase(e.target.value); setFiltroPuesto('') }}>
                 <option value="">Todas</option>
-                {basesOperativas.map(b => (<option key={b} value={b}>{b}</option>))}
+                {basesDisponibles.map(b => (<option key={b} value={b}>{b}</option>))}
               </select>
             </div>
             <div style={{ flex: '1 1 160px' }}>
@@ -180,15 +209,6 @@ export default function Dashboard() {
                 {puestosDisponibles.map(p => (<option key={p} value={p}>{p}</option>))}
               </select>
             </div>
-            {esSGI && (
-              <div style={{ flex: '1 1 160px' }}>
-                <label>Sector</label>
-                <select value={filtroSector} onChange={e => setFiltroSector(e.target.value)}>
-                  <option value="">Todos</option>
-                  {sectoresDisponibles.map(s => (<option key={s} value={s}>{s}</option>))}
-                </select>
-              </div>
-            )}
             {hayFiltros && (
               <button className="btn btn-outline" onClick={limpiarFiltros} style={{ marginBottom: 1 }}>
                 Limpiar filtros

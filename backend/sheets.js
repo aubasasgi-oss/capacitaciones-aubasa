@@ -4,7 +4,6 @@ const path = require('path')
 const SPREADSHEET_ID = process.env.SPREADSHEET_ID
 
 function getAuth() {
-  // En producción (Render) se usa la variable de entorno GOOGLE_CREDENTIALS_JSON
   if (process.env.GOOGLE_CREDENTIALS_JSON) {
     const credentials = JSON.parse(process.env.GOOGLE_CREDENTIALS_JSON)
     return new google.auth.GoogleAuth({
@@ -12,7 +11,6 @@ function getAuth() {
       scopes: ['https://www.googleapis.com/auth/spreadsheets']
     })
   }
-  // En local se usa el archivo
   return new google.auth.GoogleAuth({
     keyFile: path.resolve(process.env.GOOGLE_CREDENTIALS_PATH || './credentials.json'),
     scopes: ['https://www.googleapis.com/auth/spreadsheets']
@@ -72,4 +70,27 @@ async function obtenerColumnas(hoja) {
   return res.data.values ? res.data.values[0] : []
 }
 
-module.exports = { leerHoja, actualizarFila, agregarFila, obtenerColumnas }
+async function eliminarFila(hoja, rowIndex) {
+  const sheets = await getSheets()
+  const spreadsheet = await sheets.spreadsheets.get({ spreadsheetId: SPREADSHEET_ID })
+  const sheet = spreadsheet.data.sheets.find(s => s.properties.title === hoja)
+  if (!sheet) throw new Error(`Hoja "${hoja}" no encontrada`)
+  const sheetId = sheet.properties.sheetId
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId: SPREADSHEET_ID,
+    requestBody: {
+      requests: [{
+        deleteDimension: {
+          range: {
+            sheetId,
+            dimension: 'ROWS',
+            startIndex: rowIndex - 1,
+            endIndex: rowIndex
+          }
+        }
+      }]
+    }
+  })
+}
+
+module.exports = { leerHoja, actualizarFila, agregarFila, obtenerColumnas, eliminarFila }

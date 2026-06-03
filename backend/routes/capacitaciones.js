@@ -122,7 +122,7 @@ router.put('/:rowIndex/realizar', authMiddleware, async (req, res) => {
     const iEval   = headers.findIndex(h => norm(h) === 'evaluacion')
     const iFecha  = headers.findIndex(h => norm(h) === 'fecha de realizacion')
     const updates = {}
-    if (iEstado >= 0) updates[colLetra(iEstado)] = 'Capacitacion Realizada'
+    if (iEstado >= 0) updates[colLetra(iEstado)] = 'Capacitación Realizada'
     if (iEval   >= 0 && evaluacion !== undefined) updates[colLetra(iEval)] = evaluacion
     if (iFecha  >= 0 && fechaRealizacion) updates[colLetra(iFecha)] = fechaRealizacion
     await actualizarFila(hoja, rowIndex, updates)
@@ -163,7 +163,7 @@ router.post('/', authMiddleware, async (req, res) => {
       'base operativa':        baseOperativa || '',
       'tema a capacitar':      tema || '',
       'categoria':             categoria || '',
-      'estado':                'Capacitacion Programada',
+      'estado':                'Capacitación Programada',
     }
 
     // 4. Para cada header, si tiene valor en campos → escribirlo

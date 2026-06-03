@@ -1,6 +1,6 @@
 const express = require('express')
 const jwt = require('jsonwebtoken')
-const { leerHoja, actualizarFila, agregarFila, obtenerColumnas, eliminarFila } = require('../sheets')
+const { leerHoja, actualizarFila, agregarFilaVacia, obtenerColumnas, eliminarFila } = require('../sheets')
 const router = express.Router()
 
 const TODAS_LAS_HOJAS = [
@@ -21,12 +21,24 @@ function authMiddleware(req, res, next) {
   }
 }
 
-// Normaliza un string: minusculas, sin tildes, sin espacios extra
+// Normaliza columnas: minusculas, sin tildes, sin espacios extra
 function norm(s) {
   return (s || '').trim().toLowerCase()
     .replace(/[áàä]/g, 'a').replace(/[éèë]/g, 'e')
     .replace(/[íìï]/g, 'i').replace(/[óòö]/g, 'o')
     .replace(/[úùü]/g, 'u').replace(/ñ/g, 'n')
+}
+
+// Convierte indice 0-based a letra de columna (0=A, 1=B, 25=Z, 26=AA ...)
+function colLetra(idx) {
+  let s = ''
+  idx++
+  while (idx > 0) {
+    const r = (idx - 1) % 26
+    s = String.fromCharCode(65 + r) + s
+    idx = Math.floor((idx - 1) / 26)
+  }
+  return s
 }
 
 // Personal de Operaciones para desplegables
@@ -86,7 +98,6 @@ router.put('/:rowIndex/editar', authMiddleware, async (req, res) => {
     const { hoja: hojaBody, campos } = req.body
     const hoja = hojaBody || req.user.sector
     const headers = await obtenerColumnas(hoja)
-    const colLetra = (idx) => String.fromCharCode(65 + idx)
     const updates = {}
     for (const [nombreColumna, valor] of Object.entries(campos)) {
       const idx = headers.findIndex(h => norm(h) === norm(nombreColumna))
@@ -107,7 +118,6 @@ router.put('/:rowIndex/realizar', authMiddleware, async (req, res) => {
     const { evaluacion, fechaRealizacion, hoja: hojaBody } = req.body
     const hoja = hojaBody || req.user.sector
     const headers = await obtenerColumnas(hoja)
-    const colLetra = (idx) => String.fromCharCode(65 + idx)
     const iEstado = headers.findIndex(h => norm(h) === 'estado')
     const iEval   = headers.findIndex(h => norm(h) === 'evaluacion')
     const iFecha  = headers.findIndex(h => norm(h) === 'fecha de realizacion')
@@ -123,39 +133,54 @@ router.put('/:rowIndex/realizar', authMiddleware, async (req, res) => {
   }
 })
 
-// Nueva capacitacion
+// Nueva capacitacion — estrategia: insertar fila, obtener su rowIndex, luego escribir celda a celda
 router.post('/', authMiddleware, async (req, res) => {
   try {
     const { apellidoNombre, legajo, puesto, baseOperativa, tema, categoria, fechaProgramacion, hoja: hojaBody } = req.body
     const hoja = hojaBody || req.user.sector
+
+    if (!hoja) return res.status(400).json({ error: 'Falta el sector/hoja' })
+
+    // 1. Obtener columnas del sheet
     const headers = await obtenerColumnas(hoja)
+    console.log(`[nueva] hoja=${hoja} headers=`, headers)
 
-    // Log para debug
-    console.log('Nueva cap en hoja:', hoja)
-    console.log('Columnas encontradas:', headers)
+    // 2. Insertar fila placeholder y obtener su rowIndex
+    const rowIndex = await agregarFilaVacia(hoja)
+    if (!rowIndex) throw new Error('No se pudo determinar el rowIndex de la nueva fila')
+    console.log(`[nueva] rowIndex=${rowIndex}`)
 
+    // 3. Construir mapa campo->valor usando norm()
     const id = Math.random().toString(36).substring(2, 10)
+    const campos = {
+      'id capacitacion':       id,
+      'id capacitaciones':     id,
+      'fecha de programacion': fechaProgramacion || '',
+      'legajo':                legajo || '',
+      'apellido y nombre':     apellidoNombre || '',
+      'sector':                hoja,
+      'puesto':                puesto || '',
+      'base operativa':        baseOperativa || '',
+      'tema a capacitar':      tema || '',
+      'categoria':             categoria || '',
+      'estado':                'Capacitacion Programada',
+    }
 
-    const fila = headers.map(h => {
-      const n = norm(h)
-      if (n === 'id capacitacion' || n === 'id capacitaciones') return id
-      if (n === 'fecha de programacion')  return fechaProgramacion || ''
-      if (n === 'legajo')                 return legajo || ''
-      if (n === 'apellido y nombre')      return apellidoNombre || ''
-      if (n === 'sector')                 return hoja
-      if (n === 'puesto')                 return puesto || ''
-      if (n === 'base operativa')         return baseOperativa || ''
-      if (n === 'tema a capacitar')       return tema || ''
-      if (n === 'categoria')              return categoria || ''
-      if (n === 'estado')                 return 'Capacitacion Programada'
-      return ''
+    // 4. Para cada header, si tiene valor en campos → escribirlo
+    const updates = {}
+    headers.forEach((h, idx) => {
+      const key = norm(h)
+      if (campos[key] !== undefined && campos[key] !== '') {
+        updates[colLetra(idx)] = campos[key]
+      }
     })
+    console.log(`[nueva] updates=`, updates)
 
-    console.log('Fila a insertar:', fila)
-    await agregarFila(hoja, fila)
-    res.json({ ok: true })
+    // 5. Escribir todas las celdas de la nueva fila
+    await actualizarFila(hoja, rowIndex, updates)
+    res.json({ ok: true, rowIndex })
   } catch (err) {
-    console.error(err)
+    console.error('[nueva] error:', err)
     res.status(500).json({ error: err.message })
   }
 })

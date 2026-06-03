@@ -49,9 +49,12 @@ export default function Dashboard() {
     navigate('/login')
   }
 
-  async function handleRealizar(rowIndex, evaluacion, fechaRealizacion) {
+  async function handleRealizar(rowIndex, evaluacion, fechaRealizacion, hoja) {
     try {
-      await axios.put(`/api/capacitaciones/${rowIndex}/realizar`, { evaluacion, fechaRealizacion }, { headers })
+      await axios.put(`/api/capacitaciones/${rowIndex}/realizar`,
+        { evaluacion, fechaRealizacion, hoja },
+        { headers }
+      )
       setMsg('Capacitacion marcada como realizada')
       setModalRealizar(null)
       cargar()
@@ -110,8 +113,6 @@ export default function Dashboard() {
     setFiltroPuesto('')
   }
 
-  // Filtra aplicando todos los criterios EXCEPTO el indicado en `excluir`
-  // Esto permite que cada desplegable muestre opciones validas segun los demas filtros activos
   function filtrarSin(lista, excluir) {
     return lista.filter(c => {
       const nombre = (c['Apellido y Nombre'] || '').toLowerCase()
@@ -132,8 +133,6 @@ export default function Dashboard() {
   const realizadas  = capacitaciones.filter(c => c['Estado']?.toLowerCase().includes('realizad'))
   const base = tab === 'programadas' ? programadas : realizadas
 
-  // Opciones de cada desplegable calculadas sobre los datos del tab activo,
-  // aplicando todos los filtros excepto el propio — asi se relacionan en cascada
   const sectoresDisponibles = [...new Set(filtrarSin(base, 'sector').map(c => c['_hoja']).filter(Boolean))].sort()
   const basesDisponibles    = [...new Set(filtrarSin(base, 'base').map(c => c['Base Operativa']).filter(Boolean))].sort()
   const puestosDisponibles  = [...new Set(filtrarSin(base, 'puesto').map(c => c['Puesto']).filter(Boolean))].sort()
@@ -319,11 +318,7 @@ export default function Dashboard() {
         <ModalEditar cap={modalEditar} onClose={() => setModalEditar(null)} onConfirm={handleEditar} />
       )}
       {modalNueva && (
-        <ModalNueva
-          hojaDefault={hojaParaNueva}
-          onClose={() => setModalNueva(false)}
-          onConfirm={handleNueva}
-        />
+        <ModalNueva hojaDefault={hojaParaNueva} onClose={() => setModalNueva(false)} onConfirm={handleNueva} />
       )}
     </div>
   )

@@ -130,6 +130,9 @@ export default function Dashboard() {
 
   const hayFiltros = filtroPersna || filtroTema || filtroDesde || filtroHasta || filtroBase || filtroSector
 
+  // Para ModalNueva: si SGI tiene filtro de sector activo, pre-seleccionar ese sector
+  const hojaParaNueva = esSGI ? (filtroSector || '') : sector
+
   return (
     <div>
       <div className="topbar">
@@ -287,7 +290,11 @@ export default function Dashboard() {
         <ModalEditar cap={modalEditar} onClose={() => setModalEditar(null)} onConfirm={handleEditar} />
       )}
       {modalNueva && (
-        <ModalNueva onClose={() => setModalNueva(false)} onConfirm={handleNueva} />
+        <ModalNueva
+          hojaDefault={hojaParaNueva}
+          onClose={() => setModalNueva(false)}
+          onConfirm={handleNueva}
+        />
       )}
     </div>
   )

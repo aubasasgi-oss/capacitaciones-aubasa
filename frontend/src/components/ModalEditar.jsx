@@ -48,7 +48,12 @@ export default function ModalEditar({ cap, onClose, onConfirm }) {
 
   function submit(e) {
     e.preventDefault()
-    onConfirm(cap._rowIndex, cap._hoja, form)
+    const campos = { ...form }
+    // Si cargo evaluacion o fecha de realizacion -> pasar a Realizada automaticamente
+    if (campos['Evaluacion'] || campos['Fecha de Realizacion']) {
+      campos['Estado'] = 'Capacitacion Realizada'
+    }
+    onConfirm(cap._rowIndex, cap._hoja, campos)
   }
 
   return (
@@ -104,13 +109,10 @@ export default function ModalEditar({ cap, onClose, onConfirm }) {
               <label>Fecha Reprogramada</label>
               <input type="date" value={form['Fecha de Reprogramacion']} onChange={e => set('Fecha de Reprogramacion', e.target.value)} />
             </div>
-
-            {/* Campos de realizacion — editables siempre */}
             <div className="form-group">
               <label>Evaluacion (nota)</label>
               <input
-                type="number"
-                min="0" max="10" step="0.1"
+                type="number" min="0" max="10" step="0.1"
                 placeholder="ej: 8.5"
                 value={form['Evaluacion']}
                 onChange={e => set('Evaluacion', e.target.value)}
@@ -122,7 +124,14 @@ export default function ModalEditar({ cap, onClose, onConfirm }) {
             </div>
 
           </div>
-          <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 20 }}>
+
+          {(form['Evaluacion'] || form['Fecha de Realizacion']) && (
+            <div style={{ marginTop: 8, padding: '8px 12px', background: '#e8f5e9', borderRadius: 6, fontSize: 13, color: '#2e7d32' }}>
+              Al guardar el estado cambiara a <strong>Capacitacion Realizada</strong>
+            </div>
+          )}
+
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 16 }}>
             <button type="button" className="btn btn-outline" onClick={onClose}>Cancelar</button>
             <button type="submit" className="btn btn-primary">Guardar cambios</button>
           </div>

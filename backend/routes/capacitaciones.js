@@ -21,6 +21,14 @@ function authMiddleware(req, res, next) {
   }
 }
 
+// Normaliza un string: minusculas, sin tildes, sin espacios extra
+function norm(s) {
+  return (s || '').trim().toLowerCase()
+    .replace(/[áàä]/g, 'a').replace(/[éèë]/g, 'e')
+    .replace(/[íìï]/g, 'i').replace(/[óòö]/g, 'o')
+    .replace(/[úùü]/g, 'u').replace(/ñ/g, 'n')
+}
+
 // Personal de Operaciones para desplegables
 router.get('/personal', authMiddleware, async (req, res) => {
   try {
@@ -32,7 +40,7 @@ router.get('/personal', authMiddleware, async (req, res) => {
   }
 })
 
-// Temas/Capacitaciones de Operaciones para desplegables
+// Temas de Operaciones para desplegables
 router.get('/temas', authMiddleware, async (req, res) => {
   try {
     const rows = await leerHoja('Capacitaciones Operaciones')
@@ -71,7 +79,7 @@ router.get('/', authMiddleware, async (req, res) => {
   }
 })
 
-// Editar campos de una capacitacion
+// Editar campos
 router.put('/:rowIndex/editar', authMiddleware, async (req, res) => {
   try {
     const { rowIndex } = req.params
@@ -81,7 +89,7 @@ router.put('/:rowIndex/editar', authMiddleware, async (req, res) => {
     const colLetra = (idx) => String.fromCharCode(65 + idx)
     const updates = {}
     for (const [nombreColumna, valor] of Object.entries(campos)) {
-      const idx = headers.indexOf(nombreColumna)
+      const idx = headers.findIndex(h => norm(h) === norm(nombreColumna))
       if (idx >= 0) updates[colLetra(idx)] = valor
     }
     await actualizarFila(hoja, rowIndex, updates)
@@ -100,13 +108,13 @@ router.put('/:rowIndex/realizar', authMiddleware, async (req, res) => {
     const hoja = hojaBody || req.user.sector
     const headers = await obtenerColumnas(hoja)
     const colLetra = (idx) => String.fromCharCode(65 + idx)
-    const iEstado = headers.indexOf('Estado')
-    const iEval = headers.indexOf('Evaluacion')
-    const iFecha = headers.indexOf('Fecha de Realizacion')
+    const iEstado = headers.findIndex(h => norm(h) === 'estado')
+    const iEval   = headers.findIndex(h => norm(h) === 'evaluacion')
+    const iFecha  = headers.findIndex(h => norm(h) === 'fecha de realizacion')
     const updates = {}
     if (iEstado >= 0) updates[colLetra(iEstado)] = 'Capacitacion Realizada'
-    if (iEval >= 0 && evaluacion !== undefined) updates[colLetra(iEval)] = evaluacion
-    if (iFecha >= 0 && fechaRealizacion) updates[colLetra(iFecha)] = fechaRealizacion
+    if (iEval   >= 0 && evaluacion !== undefined) updates[colLetra(iEval)] = evaluacion
+    if (iFecha  >= 0 && fechaRealizacion) updates[colLetra(iFecha)] = fechaRealizacion
     await actualizarFila(hoja, rowIndex, updates)
     res.json({ ok: true })
   } catch (err) {
@@ -115,26 +123,35 @@ router.put('/:rowIndex/realizar', authMiddleware, async (req, res) => {
   }
 })
 
-// Nueva capacitacion programada
+// Nueva capacitacion
 router.post('/', authMiddleware, async (req, res) => {
   try {
     const { apellidoNombre, legajo, puesto, baseOperativa, tema, categoria, fechaProgramacion, hoja: hojaBody } = req.body
     const hoja = hojaBody || req.user.sector
     const headers = await obtenerColumnas(hoja)
+
+    // Log para debug
+    console.log('Nueva cap en hoja:', hoja)
+    console.log('Columnas encontradas:', headers)
+
     const id = Math.random().toString(36).substring(2, 10)
+
     const fila = headers.map(h => {
-      if (h === 'Id Capacitacion') return id
-      if (h === 'Fecha de Programacion') return fechaProgramacion || ''
-      if (h === 'Legajo') return legajo || ''
-      if (h === 'Apellido y Nombre') return apellidoNombre || ''
-      if (h === 'Sector') return hoja
-      if (h === 'Puesto') return puesto || ''
-      if (h === 'Base Operativa') return baseOperativa || ''
-      if (h === 'Tema a capacitar') return tema || ''
-      if (h === 'Categoria') return categoria || ''
-      if (h === 'Estado') return 'Capacitacion Programada'
+      const n = norm(h)
+      if (n === 'id capacitacion' || n === 'id capacitaciones') return id
+      if (n === 'fecha de programacion')  return fechaProgramacion || ''
+      if (n === 'legajo')                 return legajo || ''
+      if (n === 'apellido y nombre')      return apellidoNombre || ''
+      if (n === 'sector')                 return hoja
+      if (n === 'puesto')                 return puesto || ''
+      if (n === 'base operativa')         return baseOperativa || ''
+      if (n === 'tema a capacitar')       return tema || ''
+      if (n === 'categoria')              return categoria || ''
+      if (n === 'estado')                 return 'Capacitacion Programada'
       return ''
     })
+
+    console.log('Fila a insertar:', fila)
     await agregarFila(hoja, fila)
     res.json({ ok: true })
   } catch (err) {

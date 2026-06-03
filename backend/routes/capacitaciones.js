@@ -4,7 +4,7 @@ const { leerHoja, actualizarFila, agregarFila, obtenerColumnas, eliminarFila } =
 const router = express.Router()
 
 const TODAS_LAS_HOJAS = [
-  'SGI', 'Operaciones', 'Asistencia Vial', 'Centro de Monitoreo',
+  'SGI', 'Operaciones', 'Asistencia Vial', 'CCM',
   'Compras', 'Recursos Humanos', 'Sistemas', 'Comercial',
   'Seguridad Patrimonial', 'Legales', 'RRII', 'Taller Mecanico',
   'Mantenimiento', 'SVIA Operaciones'
@@ -17,7 +17,7 @@ function authMiddleware(req, res, next) {
     req.user = jwt.verify(token, process.env.JWT_SECRET)
     next()
   } catch {
-    res.status(401).json({ error: 'Token inválido' })
+    res.status(401).json({ error: 'Token invalido' })
   }
 }
 
@@ -71,7 +71,7 @@ router.get('/', authMiddleware, async (req, res) => {
   }
 })
 
-// Editar campos de una capacitación
+// Editar campos de una capacitacion
 router.put('/:rowIndex/editar', authMiddleware, async (req, res) => {
   try {
     const { rowIndex } = req.params
@@ -104,7 +104,7 @@ router.put('/:rowIndex/realizar', authMiddleware, async (req, res) => {
     const iEval = headers.indexOf('Evaluacion')
     const iFecha = headers.indexOf('Fecha de Realizacion')
     const updates = {}
-    if (iEstado >= 0) updates[colLetra(iEstado)] = 'Capacitación Realizada'
+    if (iEstado >= 0) updates[colLetra(iEstado)] = 'Capacitacion Realizada'
     if (iEval >= 0 && evaluacion !== undefined) updates[colLetra(iEval)] = evaluacion
     if (iFecha >= 0 && fechaRealizacion) updates[colLetra(iFecha)] = fechaRealizacion
     await actualizarFila(hoja, rowIndex, updates)
@@ -115,7 +115,7 @@ router.put('/:rowIndex/realizar', authMiddleware, async (req, res) => {
   }
 })
 
-// Nueva capacitación programada
+// Nueva capacitacion programada
 router.post('/', authMiddleware, async (req, res) => {
   try {
     const { apellidoNombre, legajo, puesto, baseOperativa, tema, categoria, fechaProgramacion, hoja: hojaBody } = req.body
@@ -132,7 +132,7 @@ router.post('/', authMiddleware, async (req, res) => {
       if (h === 'Base Operativa') return baseOperativa || ''
       if (h === 'Tema a capacitar') return tema || ''
       if (h === 'Categoria') return categoria || ''
-      if (h === 'Estado') return 'Capacitación Programada'
+      if (h === 'Estado') return 'Capacitacion Programada'
       return ''
     })
     await agregarFila(hoja, fila)
@@ -143,7 +143,7 @@ router.post('/', authMiddleware, async (req, res) => {
   }
 })
 
-// Borrar capacitación — solo SGI (GAU)
+// Borrar capacitacion — solo SGI (GAU)
 router.delete('/:rowIndex', authMiddleware, async (req, res) => {
   try {
     if (req.user.role !== 'GAU') return res.status(403).json({ error: 'Sin permiso para borrar' })

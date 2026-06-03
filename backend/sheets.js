@@ -50,15 +50,20 @@ async function actualizarFila(hoja, rowIndex, columnas) {
   }
 }
 
-async function agregarFila(hoja, valores) {
+// Agrega una fila vacia y retorna su numero de fila (rowIndex)
+async function agregarFilaVacia(hoja) {
   const sheets = await getSheets()
-  await sheets.spreadsheets.values.append({
+  const res = await sheets.spreadsheets.values.append({
     spreadsheetId: SPREADSHEET_ID,
-    range: `${hoja}!A:Z`,
+    range: `${hoja}!A:A`,
     valueInputOption: 'USER_ENTERED',
     insertDataOption: 'INSERT_ROWS',
-    requestBody: { values: [valores] }
+    requestBody: { values: [['_placeholder_']] }
   })
+  // El rango actualizado viene como "Hoja!A123:A123" — extraemos 123
+  const updatedRange = res.data.updates.updatedRange
+  const match = updatedRange.match(/:?[A-Z]+(\d+)$/)
+  return match ? parseInt(match[1]) : null
 }
 
 async function obtenerColumnas(hoja) {
@@ -93,4 +98,4 @@ async function eliminarFila(hoja, rowIndex) {
   })
 }
 
-module.exports = { leerHoja, actualizarFila, agregarFila, obtenerColumnas, eliminarFila }
+module.exports = { leerHoja, actualizarFila, agregarFilaVacia, obtenerColumnas, eliminarFila }

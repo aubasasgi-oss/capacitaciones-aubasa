@@ -49,9 +49,12 @@ export default function ModalEditar({ cap, onClose, onConfirm }) {
   function submit(e) {
     e.preventDefault()
     const campos = { ...form }
-    // Si cargo evaluacion o fecha de realizacion -> pasar a Realizada automaticamente
     if (campos['Evaluacion'] || campos['Fecha de Realizacion']) {
+      // Si cargo evaluacion o fecha de realizacion -> pasar a Realizada
       campos['Estado'] = 'Capacitacion Realizada'
+    } else if (campos['Fecha de Reprogramacion']) {
+      // Si cargo fecha de reprogramacion -> pasar a Reprogramada
+      campos['Estado'] = 'Capacitacion Reprogramada'
     }
     onConfirm(cap._rowIndex, cap._hoja, campos)
   }
@@ -128,6 +131,11 @@ export default function ModalEditar({ cap, onClose, onConfirm }) {
           {(form['Evaluacion'] || form['Fecha de Realizacion']) && (
             <div style={{ marginTop: 8, padding: '8px 12px', background: '#e8f5e9', borderRadius: 6, fontSize: 13, color: '#2e7d32' }}>
               Al guardar el estado cambiara a <strong>Capacitacion Realizada</strong>
+            </div>
+          )}
+          {(!form['Evaluacion'] && !form['Fecha de Realizacion'] && form['Fecha de Reprogramacion']) && (
+            <div style={{ marginTop: 8, padding: '8px 12px', background: '#fff3e0', borderRadius: 6, fontSize: 13, color: '#e65100' }}>
+              Al guardar el estado cambiara a <strong>Capacitacion Reprogramada</strong>
             </div>
           )}
 

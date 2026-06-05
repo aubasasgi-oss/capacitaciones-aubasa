@@ -1,6 +1,6 @@
 const express = require('express')
 const jwt = require('jsonwebtoken')
-const { leerHoja, actualizarFila, agregarFilaVacia, obtenerColumnas, eliminarFila } = require('../sheets')
+const { leerHoja, actualizarFila, agregarFilaVacia, obtenerColumnas, eliminarFila, agregarAuditoria, leerAuditoria } = require('../sheets')
 const router = express.Router()
 
 const TODAS_LAS_HOJAS = [
@@ -21,7 +21,6 @@ function authMiddleware(req, res, next) {
   }
 }
 
-// Normaliza columnas: minusculas, sin tildes, sin espacios extra
 function norm(s) {
   return (s || '').trim().toLowerCase()
     .replace(/[áàä]/g, 'a').replace(/[éèë]/g, 'e')
@@ -29,7 +28,6 @@ function norm(s) {
     .replace(/[úùü]/g, 'u').replace(/ñ/g, 'n')
 }
 
-// Convierte indice 0-based a letra de columna (0=A, 1=B, 25=Z, 26=AA ...)
 function colLetra(idx) {
   let s = ''
   idx++
@@ -41,7 +39,11 @@ function colLetra(idx) {
   return s
 }
 
-// Personal de Operaciones para desplegables
+function audit(user, accion, hoja, rowIndex, detalle) {
+  const fecha = new Date().toLocaleString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires' })
+  agregarAuditoria([fecha, user.username || user.sector, user.role, accion, hoja, String(rowIndex || ''), detalle]).catch(() => {})
+}
+
 router.get('/personal', authMiddleware, async (req, res) => {
   try {
     const rows = await leerHoja('Personal Operaciones')
@@ -52,7 +54,6 @@ router.get('/personal', authMiddleware, async (req, res) => {
   }
 })
 
-// Temas de Operaciones para desplegables
 router.get('/temas', authMiddleware, async (req, res) => {
   try {
     const rows = await leerHoja('Capacitaciones Operaciones')
@@ -63,7 +64,18 @@ router.get('/temas', authMiddleware, async (req, res) => {
   }
 })
 
-// Listar capacitaciones
+// Auditoria — solo SGI
+router.get('/auditoria', authMiddleware, async (req, res) => {
+  try {
+    if (req.user.role !== 'GAU') return res.status(403).json({ error: 'Sin permiso' })
+    const rows = await leerAuditoria()
+    res.json(rows)
+  } catch (err) {
+    console.error(err)
+    res.status(500).json({ error: err.message })
+  }
+})
+
 router.get('/', authMiddleware, async (req, res) => {
   try {
     const esSGI = req.user.role === 'GAU'
@@ -91,7 +103,6 @@ router.get('/', authMiddleware, async (req, res) => {
   }
 })
 
-// Editar campos
 router.put('/:rowIndex/editar', authMiddleware, async (req, res) => {
   try {
     const { rowIndex } = req.params
@@ -104,6 +115,8 @@ router.put('/:rowIndex/editar', authMiddleware, async (req, res) => {
       if (idx >= 0) updates[colLetra(idx)] = valor
     }
     await actualizarFila(hoja, rowIndex, updates)
+    const detalle = Object.entries(campos).map(([k, v]) => k + '=' + v).join('; ')
+    audit(req.user, 'EDITAR', hoja, rowIndex, detalle)
     res.json({ ok: true })
   } catch (err) {
     console.error(err)
@@ -111,7 +124,6 @@ router.put('/:rowIndex/editar', authMiddleware, async (req, res) => {
   }
 })
 
-// Marcar como realizado
 router.put('/:rowIndex/realizar', authMiddleware, async (req, res) => {
   try {
     const { rowIndex } = req.params
@@ -122,10 +134,11 @@ router.put('/:rowIndex/realizar', authMiddleware, async (req, res) => {
     const iEval   = headers.findIndex(h => norm(h) === 'evaluacion')
     const iFecha  = headers.findIndex(h => norm(h) === 'fecha de realizacion')
     const updates = {}
-    if (iEstado >= 0) updates[colLetra(iEstado)] = 'Capacitación Realizada'
+    if (iEstado >= 0) updates[colLetra(iEstado)] = 'Capacitacion Realizada'
     if (iEval   >= 0 && evaluacion !== undefined) updates[colLetra(iEval)] = evaluacion
     if (iFecha  >= 0 && fechaRealizacion) updates[colLetra(iFecha)] = fechaRealizacion
     await actualizarFila(hoja, rowIndex, updates)
+    audit(req.user, 'REALIZAR', hoja, rowIndex, 'evaluacion=' + evaluacion + '; fecha=' + fechaRealizacion)
     res.json({ ok: true })
   } catch (err) {
     console.error(err)
@@ -133,7 +146,6 @@ router.put('/:rowIndex/realizar', authMiddleware, async (req, res) => {
   }
 })
 
-// Nueva capacitacion — estrategia: insertar fila, obtener su rowIndex, luego escribir celda a celda
 router.post('/', authMiddleware, async (req, res) => {
   try {
     const { apellidoNombre, legajo, puesto, baseOperativa, tema, categoria, fechaProgramacion, hoja: hojaBody } = req.body
@@ -141,23 +153,16 @@ router.post('/', authMiddleware, async (req, res) => {
 
     if (!hoja) return res.status(400).json({ error: 'Falta el sector/hoja' })
 
-    // 1. Obtener columnas del sheet
     const headers = await obtenerColumnas(hoja)
 
-    // Leer el valor real de la columna Sector de filas existentes
-    // (puede diferir del nombre de la hoja, ej: hoja='SVIA Operaciones' pero Sector='Gerencia de Operaciones SVIA')
     const filasExistentes = await leerHoja(hoja)
     const sectorReal = filasExistentes.length > 0 && filasExistentes[0]['Sector']
       ? filasExistentes[0]['Sector']
       : hoja
-    console.log(`[nueva] hoja=${hoja} sectorReal=${sectorReal} headers=`, headers)
 
-    // 2. Insertar fila placeholder y obtener su rowIndex
     const rowIndex = await agregarFilaVacia(hoja)
     if (!rowIndex) throw new Error('No se pudo determinar el rowIndex de la nueva fila')
-    console.log(`[nueva] rowIndex=${rowIndex}`)
 
-    // 3. Construir mapa campo->valor usando norm()
     const id = Math.random().toString(36).substring(2, 10)
     const campos = {
       'id capacitacion':       id,
@@ -170,10 +175,9 @@ router.post('/', authMiddleware, async (req, res) => {
       'base operativa':        baseOperativa || '',
       'tema a capacitar':      tema || '',
       'categoria':             categoria || '',
-      'estado':                'Capacitación Programada',
+      'estado':                'Capacitacion Programada',
     }
 
-    // 4. Para cada header, si tiene valor en campos → escribirlo
     const updates = {}
     headers.forEach((h, idx) => {
       const key = norm(h)
@@ -181,10 +185,9 @@ router.post('/', authMiddleware, async (req, res) => {
         updates[colLetra(idx)] = campos[key]
       }
     })
-    console.log(`[nueva] updates=`, updates)
 
-    // 5. Escribir todas las celdas de la nueva fila
     await actualizarFila(hoja, rowIndex, updates)
+    audit(req.user, 'CREAR', hoja, rowIndex, apellidoNombre + ' | ' + tema + ' | ' + fechaProgramacion)
     res.json({ ok: true, rowIndex })
   } catch (err) {
     console.error('[nueva] error:', err)
@@ -192,14 +195,20 @@ router.post('/', authMiddleware, async (req, res) => {
   }
 })
 
-// Borrar capacitacion — solo SGI (GAU)
+// Borrar capacitacion — disponible para todos los usuarios autenticados
 router.delete('/:rowIndex', authMiddleware, async (req, res) => {
   try {
-    if (req.user.role !== 'GAU') return res.status(403).json({ error: 'Sin permiso para borrar' })
     const { rowIndex } = req.params
     const { hoja } = req.body
     if (!hoja) return res.status(400).json({ error: 'Falta el campo hoja' })
+    let detalle = 'fila ' + rowIndex
+    try {
+      const filas = await leerHoja(hoja)
+      const fila = filas.find(f => String(f._rowIndex) === String(rowIndex))
+      if (fila) detalle = (fila['Apellido y Nombre'] || '') + ' | ' + (fila['Tema a capacitar'] || '') + ' | ' + (fila['Estado'] || '')
+    } catch {}
     await eliminarFila(hoja, parseInt(rowIndex))
+    audit(req.user, 'BORRAR', hoja, rowIndex, detalle)
     res.json({ ok: true })
   } catch (err) {
     console.error(err)

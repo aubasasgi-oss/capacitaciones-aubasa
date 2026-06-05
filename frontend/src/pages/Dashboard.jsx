@@ -5,6 +5,13 @@ import ModalRealizar from '../components/ModalRealizar'
 import ModalNueva from '../components/ModalNueva'
 import ModalEditar from '../components/ModalEditar'
 
+function badgeEstado(estado) {
+  const e = (estado || '').toLowerCase()
+  if (e.includes('realizad')) return { label: 'Realizada', cls: 'badge-realizado' }
+  if (e.includes('reprogramad')) return { label: 'Reprogramada', cls: 'badge-reprogramado' }
+  return { label: 'Programada', cls: 'badge-programado' }
+}
+
 export default function Dashboard() {
   const [capacitaciones, setCapacitaciones] = useState([])
   const [tab, setTab] = useState('programadas')
@@ -13,6 +20,9 @@ export default function Dashboard() {
   const [modalRealizar, setModalRealizar] = useState(null)
   const [modalNueva, setModalNueva] = useState(false)
   const [modalEditar, setModalEditar] = useState(null)
+  const [modalAuditoria, setModalAuditoria] = useState(false)
+  const [auditoria, setAuditoria] = useState([])
+  const [loadingAudit, setLoadingAudit] = useState(false)
   const [msg, setMsg] = useState('')
   const [filtroPersna, setFiltroPersna] = useState('')
   const [filtroTema, setFiltroTema] = useState('')
@@ -41,6 +51,19 @@ export default function Dashboard() {
   }
 
   useEffect(() => { cargar() }, [])
+
+  async function abrirAuditoria() {
+    setModalAuditoria(true)
+    setLoadingAudit(true)
+    try {
+      const { data } = await axios.get('/api/capacitaciones/auditoria', { headers })
+      setAuditoria(data)
+    } catch {
+      setAuditoria([])
+    } finally {
+      setLoadingAudit(false)
+    }
+  }
 
   function logout() {
     localStorage.removeItem('cap_token')
@@ -129,9 +152,14 @@ export default function Dashboard() {
     })
   }
 
-  const programadas = capacitaciones.filter(c => c['Estado']?.toLowerCase().includes('programad'))
-  const realizadas  = capacitaciones.filter(c => c['Estado']?.toLowerCase().includes('realizad'))
-  const base = tab === 'programadas' ? programadas : realizadas
+  const programadas   = capacitaciones.filter(c => {
+    const e = (c['Estado'] || '').toLowerCase()
+    return !e.includes('realizad') && !e.includes('reprogramad')
+  })
+  const reprogramadas = capacitaciones.filter(c => (c['Estado'] || '').toLowerCase().includes('reprogramad'))
+  const realizadas    = capacitaciones.filter(c => (c['Estado'] || '').toLowerCase().includes('realizad'))
+
+  const base = tab === 'programadas' ? programadas : tab === 'reprogramadas' ? reprogramadas : realizadas
 
   const sectoresDisponibles = [...new Set(filtrarSin(base, 'sector').map(c => c['_hoja']).filter(Boolean))].sort()
   const basesDisponibles    = [...new Set(filtrarSin(base, 'base').map(c => c['Base Operativa']).filter(Boolean))].sort()
@@ -158,9 +186,16 @@ export default function Dashboard() {
     <div>
       <div className="topbar">
         <h1>Capacitaciones — {sector}</h1>
-        <button className="btn btn-outline" style={{ color: 'white', borderColor: 'white' }} onClick={logout}>
-          Salir
-        </button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {esSGI && (
+            <button className="btn btn-outline" style={{ color: 'white', borderColor: 'white', fontSize: 13 }} onClick={abrirAuditoria}>
+              Auditoria
+            </button>
+          )}
+          <button className="btn btn-outline" style={{ color: 'white', borderColor: 'white' }} onClick={logout}>
+            Salir
+          </button>
+        </div>
       </div>
 
       <div style={{ padding: '24px 28px' }}>
@@ -221,6 +256,9 @@ export default function Dashboard() {
             <button className={`tab ${tab === 'programadas' ? 'active' : ''}`} onClick={() => setTab('programadas')}>
               Programadas ({programadas.length})
             </button>
+            <button className={`tab ${tab === 'reprogramadas' ? 'active' : ''}`} onClick={() => setTab('reprogramadas')}>
+              Reprogramadas ({reprogramadas.length})
+            </button>
             <button className={`tab ${tab === 'realizadas' ? 'active' : ''}`} onClick={() => setTab('realizadas')}>
               Realizadas ({realizadas.length})
             </button>
@@ -242,7 +280,7 @@ export default function Dashboard() {
             <div style={{ padding: 32, textAlign: 'center', color: '#888' }}>Cargando datos del Sheet...</div>
           ) : lista.length === 0 ? (
             <div style={{ padding: 32, textAlign: 'center', color: '#888' }}>
-              {hayFiltros ? 'No hay resultados para los filtros aplicados' : `No hay capacitaciones ${tab === 'programadas' ? 'programadas' : 'realizadas'}`}
+              {hayFiltros ? 'No hay resultados para los filtros aplicados' : `No hay capacitaciones ${tab}`}
             </div>
           ) : (
             <table>
@@ -256,55 +294,58 @@ export default function Dashboard() {
                   <th>Tema a Capacitar</th>
                   <th>Categoria</th>
                   <th>Fecha Prog.</th>
+                  {tab === 'reprogramadas' && <th>Fecha Reprog.</th>}
                   {tab === 'realizadas' && <><th>Evaluacion</th><th>Fecha Real.</th></>}
                   <th>Estado</th>
                   <th>Acciones</th>
                 </tr>
               </thead>
               <tbody>
-                {lista.map((c, i) => (
-                  <tr key={i}>
-                    {esSGI && <td><span className="badge" style={{ background: '#e3f2fd', color: '#1565c0' }}>{c['_hoja']}</span></td>}
-                    <td>{c['Apellido y Nombre']}</td>
-                    <td>{c['Legajo']}</td>
-                    <td>{c['Puesto']}</td>
-                    <td>{c['Base Operativa']}</td>
-                    <td>{c['Tema a capacitar']}</td>
-                    <td>{c['Categoria']}</td>
-                    <td>{c['Fecha de Programacion'] ? String(c['Fecha de Programacion']).split('T')[0] : ''}</td>
-                    {tab === 'realizadas' && (
-                      <>
-                        <td><strong>{c['Evaluacion']}</strong></td>
-                        <td>{c['Fecha de Realizacion'] ? String(c['Fecha de Realizacion']).split('T')[0] : ''}</td>
-                      </>
-                    )}
-                    <td>
-                      <span className={`badge ${tab === 'programadas' ? 'badge-programado' : 'badge-realizado'}`}>
-                        {tab === 'programadas' ? 'Programada' : 'Realizada'}
-                      </span>
-                    </td>
-                    <td>
-                      <div style={{ display: 'flex', gap: 6 }}>
-                        {tab === 'programadas' && (
-                          <button className="btn btn-success" style={{ padding: '5px 10px', fontSize: 12 }} onClick={() => setModalRealizar(c)}>
-                            Realizada
+                {lista.map((c, i) => {
+                  const badge = badgeEstado(c['Estado'])
+                  return (
+                    <tr key={i}>
+                      {esSGI && <td><span className="badge" style={{ background: '#e3f2fd', color: '#1565c0' }}>{c['_hoja']}</span></td>}
+                      <td>{c['Apellido y Nombre']}</td>
+                      <td>{c['Legajo']}</td>
+                      <td>{c['Puesto']}</td>
+                      <td>{c['Base Operativa']}</td>
+                      <td>{c['Tema a capacitar']}</td>
+                      <td>{c['Categoria']}</td>
+                      <td>{c['Fecha de Programacion'] ? String(c['Fecha de Programacion']).split('T')[0] : ''}</td>
+                      {tab === 'reprogramadas' && (
+                        <td>{c['Fecha de Reprogramacion'] ? String(c['Fecha de Reprogramacion']).split('T')[0] : ''}</td>
+                      )}
+                      {tab === 'realizadas' && (
+                        <>
+                          <td><strong>{c['Evaluacion']}</strong></td>
+                          <td>{c['Fecha de Realizacion'] ? String(c['Fecha de Realizacion']).split('T')[0] : ''}</td>
+                        </>
+                      )}
+                      <td>
+                        <span className={`badge ${badge.cls}`}>{badge.label}</span>
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          {tab !== 'realizadas' && (
+                            <button className="btn btn-success" style={{ padding: '5px 10px', fontSize: 12 }} onClick={() => setModalRealizar(c)}>
+                              Realizada
+                            </button>
+                          )}
+                          <button className="btn btn-warning" style={{ padding: '5px 10px', fontSize: 12 }} onClick={() => setModalEditar(c)}>
+                            Editar
                           </button>
-                        )}
-                        <button className="btn btn-warning" style={{ padding: '5px 10px', fontSize: 12 }} onClick={() => setModalEditar(c)}>
-                          Editar
-                        </button>
-                        {esSGI && (
                           <button
                             style={{ padding: '5px 10px', fontSize: 12, background: '#dc3545', color: 'white', border: 'none', borderRadius: 4, cursor: 'pointer' }}
                             onClick={() => handleBorrar(c)}
                           >
                             Borrar
                           </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                        </div>
+                      </td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           )}
@@ -319,6 +360,45 @@ export default function Dashboard() {
       )}
       {modalNueva && (
         <ModalNueva hojaDefault={hojaParaNueva} onClose={() => setModalNueva(false)} onConfirm={handleNueva} />
+      )}
+
+      {modalAuditoria && (
+        <div className="modal-overlay">
+          <div className="modal" style={{ maxWidth: 900, width: '95vw' }}>
+            <h3>Auditoria de movimientos</h3>
+            {loadingAudit ? (
+              <div style={{ padding: 24, textAlign: 'center', color: '#888' }}>Cargando...</div>
+            ) : auditoria.length === 0 ? (
+              <div style={{ padding: 24, textAlign: 'center', color: '#888' }}>Sin registros de auditoria</div>
+            ) : (
+              <div style={{ overflowX: 'auto', maxHeight: '60vh', overflowY: 'auto' }}>
+                <table style={{ fontSize: 12 }}>
+                  <thead>
+                    <tr>
+                      <th>Fecha y Hora</th>
+                      <th>Usuario</th>
+                      <th>Rol</th>
+                      <th>Accion</th>
+                      <th>Hoja</th>
+                      <th>Fila</th>
+                      <th>Detalle</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[...auditoria].reverse().map((row, i) => (
+                      <tr key={i}>
+                        {row.map((cell, j) => <td key={j}>{cell}</td>)}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 16 }}>
+              <button className="btn btn-outline" onClick={() => setModalAuditoria(false)}>Cerrar</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

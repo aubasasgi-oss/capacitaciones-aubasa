@@ -51,6 +51,7 @@ label { font-size: 13px; font-weight: 600; color: #555; margin-bottom: 4px; disp
 }
 .badge-programado { background: #fff3e0; color: #e65100; }
 .badge-realizado  { background: #e8f5e9; color: #2e7d32; }
+.badge-reprogramado { background: #e3f2fd; color: #1565c0; }
 
 table { width: 100%; border-collapse: collapse; }
 thead tr { background: #1976d2; color: white; }

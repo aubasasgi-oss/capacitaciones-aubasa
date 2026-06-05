@@ -98,4 +98,23 @@ async function eliminarFila(hoja, rowIndex) {
   })
 }
 
-module.exports = { leerHoja, actualizarFila, agregarFilaVacia, obtenerColumnas, eliminarFila }
+async function agregarAuditoria(fila) {
+  const sheets = await getSheets()
+  await sheets.spreadsheets.values.append({
+    spreadsheetId: SPREADSHEET_ID,
+    range: 'Auditoria!A:A',
+    valueInputOption: 'USER_ENTERED',
+    insertDataOption: 'INSERT_ROWS',
+    requestBody: { values: [fila] }
+  })
+}
+
+async function leerAuditoria() {
+  const sheets = await getSheets()
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId: SPREADSHEET_ID,
+    range: 'Auditoria!A:G'
+  })
+  return res.data.values || []
+}
+module.exports = { leerHoja, actualizarFila, agregarFilaVacia, obtenerColumnas, eliminarFila, agregarAuditoria, leerAuditoria }

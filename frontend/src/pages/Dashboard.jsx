@@ -154,7 +154,7 @@ export default function Dashboard() {
 
   const programadas   = capacitaciones.filter(c => {
     const e = (c['Estado'] || '').toLowerCase()
-    return !e.includes('realizad') && !e.includes('reprogramad')
+    return e.includes('programad') && !e.includes('reprogramad')
   })
   const reprogramadas = capacitaciones.filter(c => (c['Estado'] || '').toLowerCase().includes('reprogramad'))
   const realizadas    = capacitaciones.filter(c => (c['Estado'] || '').toLowerCase().includes('realizad'))
